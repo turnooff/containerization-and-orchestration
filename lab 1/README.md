@@ -15,7 +15,7 @@
 ## Часть 1 - прямой запуск
 запустил сервис напрямую без ограничений. `/health` возвращает `ok`
 
-![alt text](cashe/image.png)
+![alt text](cashe/image1_1.png)
 
 запустил `ps` и получил точку отсчета, с которой буду сравнивать данные полученные после наложения изоляции. 
 ``` bash
@@ -23,7 +23,7 @@ ps -p 10204 -o pid, ppid,user,cmd
     PID    PPID USER     CMD
   10204    6627 tim      ./api
 ```
-![alt text](cashe/image-2.png)
+![alt text](cashe/image1_2.png)
 
 запустил `ls -l /proc/$(pgrep api)/ns/` и `ls -l /proc/$$/ns/`
 ``` bash
@@ -54,6 +54,40 @@ lrwxrwxrwx 1 tim tim 0 Sep 18 09:16 time_for_children -> 'time:[4026531834]'
 lrwxrwxrwx 1 tim tim 0 Sep 18 09:16 user -> 'user:[4026531837]'
 lrwxrwxrwx 1 tim tim 0 Sep 18 09:16 uts -> 'uts:[4026531838]'
 ```
-![alt text](cashe/image-1.png)
+![alt text](cashe/image1_3.png)
 
 сравнил полученные результаты для понимания, что это неизолированный процесс на данный момент. Такой вывод сделал из того, что у одних и тех же namespace сервиса и моей shell одни и те же inode. 
+
+## Часть 2 - namespaces
+Создал новый набор namespace и зашёл внутрь:
+``` bash 
+unshare --pid --mount --net --uts --ipc --user --map-root-user --fork bash
+```
+Внутри переделал `/proc` (`mount -t proc proc /proc`), чтобы `ps` читал процессы нового pid-ns, а не тот, который унаследован от хостового.
+![alt text](cashe/image2_1.png)
+внутри pid bash стал равен 1
+
+![alt text](cashe/image2_2.png)
+снаружи pid не равен 1
+
+![alt text](cashe/image2_3.png)
+поменял hostname внутри, он поменялся только внутри, а снаружи hostname остался тем же. 
+
+![alt text](cashe/image2_4.png)
+внутри нового пространства net-ns есть только lo и он в состоянии down. После его поднятия в адресах есть только localhost, а ip route пусто.
+
+![alt text](cashe/image2_5.png)
+![alt text](cashe/image2_6.png)
+внутри `uid=0(root)`, снаружи `tim`
+
+| Namespace | Часть 1 (хост) | Часть 2 (внутри) | Изменился? |
+|-----------|----------------|------------------|------------|
+| mnt       | 4026531832     | 4026534462       | да         |
+| pid       | 4026531836     | 4026534465       | да         |
+| net       | 4026531833     | 4026534466       | да         |
+| uts       | 4026531838     | 4026534463       | да         |
+| ipc       | 4026531839     | 4026534464       | да         |
+| user      | 4026531837     | 4026533309       | да         |
+| cgroup    | 4026531835     | 4026531835       | нет        |
+
+В прошлой части фиксировал inode namespece'ов, сейчас решил сравнить их с текущими inode. 6 из 7 разошлись. Это значит, что изоляция работает. 
