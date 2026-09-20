@@ -1,0 +1,9 @@
+FROM golang:1.27 AS builder
+WORKDIR /src
+COPY api/ .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /api .
+
+FROM scratch
+COPY --from=builder /api /api
+EXPOSE 8080
+ENTRYPOINT ["/api"]
