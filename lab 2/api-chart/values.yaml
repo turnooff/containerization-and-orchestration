@@ -1,0 +1,21 @@
+replicaCount: 1
+
+image:
+  repository: api
+  tag: dev
+  pullPolicy: IfNotPresent  # Не тянем из реестра, если образ уже есть на ноде
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Переменные окружения для сервиса. Пока Jaeger ещё не поднят,
+# эндпоинт можно указать «как договоримся» — сервис просто не сможет
+# экспортировать трейсы, но работать и отдавать метрики будет.
+
+fullnameOverride: api
+
+env:
+  OTEL_SERVICE_NAME: "api"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger-collector.observability.svc.cluster.local:4317"
+  SELF_URL: "http://api.default.svc.cluster.local:8080"

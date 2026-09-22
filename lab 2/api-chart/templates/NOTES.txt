@@ -1,0 +1,14 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Проверка:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "api-chart.fullname" . }} 8080:{{ .Values.service.port }}
+
+  curl http://localhost:8080/health
+  curl http://localhost:8080/fail
+  curl http://localhost:8080/slow
+  curl http://localhost:8080/load
+  curl http://localhost:8080/metrics
