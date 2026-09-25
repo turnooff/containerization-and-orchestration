@@ -54,3 +54,42 @@ kubectl get pods,svc
 ![alt text](cashe/image0_2.png)
 все эндпоинты подняты успешно и отдают метрики.
 
+## Часть 1 - метрики
+Создаю helm репозиторий:
+![alt text](cashe/image1_1.png)
+
+Создаю kps-values.yaml, который включает в себя пароль от Grafana и настройки для Prometheus Operator, которая отключает селектор, потому что иначе пришлось бы вручную писать лейблы для api.
+![alt text](cashe/image1_2.png)
+
+Устанавливаю чарт и проверяю, что все компоненты подняты:
+![alt text](cashe/image1_3.png)
+
+Открываю Prometheus UI и проверил, что он scrape'ит кластерные таргеты.
+![alt text](cashe/image1_4.png)
+![alt text](cashe/image1_5.png)
+
+С Графаной было все не так просто: при первой попытке не получилось зайти на сайт: 
+![alt text](cashe/image1_6.png)
+Не нашел качественного решения, с помощью нейронки понял, что ошибка на стороне браузера, но не смог ее устранить и просто открыл графану в приватном окне :)
+
+![alt text](cashe/image1_8.png)
+
+![alt text](cashe/image1_9.png)
+Состыковал Prometheus со своим api и теперь он может брать с api метрики. 
+
+Не самая простая задачка разобраться с интерфейсом графаны, но даже что-то получилось.
+![alt text](cashe/image1_13.png)
+Теперь осталось наполнить это данными с помощью парочки циклов
+```bash
+kubectl port-forward svc/api 8080:8080
+for i in $(seq 1 30); do curl -s http://localhost:8080/load; done &
+for i in $(seq 1 10); do curl -s http://localhost:8080/fail; done
+for i in $(seq 1 5);  do curl -s http://localhost:8080/slow; done
+```
+![alt text](cashe/image1_14.png)
+на графике p95 не увидел /slow, из-за значительного увеличения времени ответа от /healthy, поэтому решил испытать его отдельно 
+```bash
+for i in $(seq 1 20); do curl -s -o /dev/null http://localhost:8080/slow & done; wait
+```
+после команды результат стал заментным:
+![alt text](cashe/image1_15.png)

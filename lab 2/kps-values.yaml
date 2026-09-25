@@ -1,0 +1,9 @@
+grafana:
+  adminPassword: admin
+
+prometheus:
+  prometheusSpec:
+    # Чтобы Prometheus Operator подхватывал ServiceMonitor'ы/ PodMonitor'ы
+    # во ВСЕХ неймспейсах, а не только с лейблом релиза.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false

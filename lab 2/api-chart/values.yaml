@@ -19,3 +19,6 @@ env:
   OTEL_SERVICE_NAME: "api"
   OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger-collector.observability.svc.cluster.local:4317"
   SELF_URL: "http://api.default.svc.cluster.local:8080"
+
+serviceMonitor:
+  enabled: true
