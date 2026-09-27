@@ -22,3 +22,6 @@ env:
 
 serviceMonitor:
   enabled: true
+
+prometheusRule:
+  enabled: true
