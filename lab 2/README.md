@@ -101,7 +101,9 @@ kubectl create secret generic alertmanager-telegram \
   -n monitoring \
   --from-literal=bot-token='<Мой токен>'
 ```
+первый пришедший алерт, успех, но это я еще не знаю, что меня ждет дальше...
 ![alt text](cashe/image4_1.png)
+
 получилось принять алерт, ура. 
 но в телеграмм валяться и другие алерты из kube-prometheus-stack
 ![alt text](cashe/image4_2.png) 
@@ -111,7 +113,9 @@ kubectl create secret generic alertmanager-telegram \
 
 после очень долгих страданий, около 1.5 часов, получилось поймать свой алерт и прочитать его в телеграмме
 ![alt text](cashe/image4_4.png)
+
 алерт также появился в карме
+
 ![alt text](cashe/image4_5.png)
 ![alt text](cashe/image4_6.png)
 
