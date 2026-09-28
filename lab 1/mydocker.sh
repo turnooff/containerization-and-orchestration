@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-# Проверяем права API, а не собственные права проверяющего процесса.
+# По рофлу написано, чтобы проверить что api норм работает
 check_api() {
     local attempt reply
     for attempt in {1..50}; do
@@ -73,7 +73,7 @@ unshare --pid --mount --net --uts --ipc --user \
     # Проверка ждёт запуска API; основной процесс затем заменится сервисом.
     check_api &
 
-    # Часть 4 — capabilities, seccomp и проверка запретов.
+    # Часть 4 — capabilities, seccomp и заодно проверка запретов.
     exec setpriv \
     --bounding-set=-all \
     --inh-caps=-all \
