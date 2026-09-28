@@ -1,0 +1,14 @@
+configMap:
+  enabled: true
+  rawConfig:
+    alertmanager:
+      interval: 30s
+      servers:
+        - name: main
+          uri: http://kps-kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+          timeout: 10s
+          requestTimeout: 10s
+
+service:
+  type: ClusterIP
+  port: 80

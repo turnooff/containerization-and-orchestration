@@ -1,0 +1,42 @@
+grafana:
+  adminPassword: admin
+
+prometheus:
+  prometheusSpec:
+    # Чтобы Prometheus Operator подхватывал ServiceMonitor'ы/ PodMonitor'ы
+    # во ВСЕХ неймспейсах, а не только с лейблом релиза.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+alertmanager:
+  alertmanagerSpec:
+    secrets:
+      - alertmanager-telegram
+
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: telegram
+      group_by: ['alertname', 'namespace', 'severity']
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+      routes: []
+
+    receivers:
+      - name: telegram
+        telegram_configs:
+          - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
+            chat_id: -5329567322
+            parse_mode: 'HTML'
+            send_resolved: true
+            message: |
+              {{ range .Alerts }}
+              🔥 <b>{{ .Labels.alertname }}</b>
+              <b>Severity:</b> {{ .Labels.severity }}
+              <b>Summary:</b> {{ .Annotations.summary }}
+              <b>Description:</b> {{ .Annotations.description }}
+              {{ end }}
