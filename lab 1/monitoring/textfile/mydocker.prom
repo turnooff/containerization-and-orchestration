@@ -1,0 +1,31 @@
+# HELP mydocker_memory_current_bytes Current memory usage
+# TYPE mydocker_memory_current_bytes gauge
+mydocker_memory_current_bytes 77824
+
+# HELP mydocker_memory_max_bytes Memory limit
+# TYPE mydocker_memory_max_bytes gauge
+mydocker_memory_max_bytes 104857600
+
+# HELP mydocker_cpu_usage_seconds_total CPU usage in seconds
+# TYPE mydocker_cpu_usage_seconds_total counter
+mydocker_cpu_usage_seconds_total 0.150181
+
+# HELP mydocker_cpu_periods_total CPU periods
+# TYPE mydocker_cpu_periods_total counter
+mydocker_cpu_periods_total 12
+
+# HELP mydocker_cpu_throttled_periods_total Throttled periods
+# TYPE mydocker_cpu_throttled_periods_total counter
+mydocker_cpu_throttled_periods_total 1
+
+# HELP mydocker_cpu_throttled_seconds_total Time throttled, seconds
+# TYPE mydocker_cpu_throttled_seconds_total counter
+mydocker_cpu_throttled_seconds_total 0.076364
+
+# HELP mydocker_pids_current Current PIDs
+# TYPE mydocker_pids_current gauge
+mydocker_pids_current 0
+
+# HELP mydocker_memory_oom_kills_total OOM kills
+# TYPE mydocker_memory_oom_kills_total counter
+mydocker_memory_oom_kills_total 1
