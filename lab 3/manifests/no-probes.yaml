@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-probes
+  labels:
+    app.kubernetes.io/name: demo
+    owner: team-a
+    env: dev
+spec:
+  containers:
+    - name: app
+      image: registry.company.com/demo/app:1.0.0
+      resources:
+        requests: { cpu: "100m", memory: "128Mi" }
+        limits:   { cpu: "200m", memory: "256Mi" }

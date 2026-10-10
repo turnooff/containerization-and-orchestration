@@ -1,0 +1,119 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: shop-guardrails
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    # 1. Обязательные requests/limits
+    - name: require-resources
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: >-
+          У каждого контейнера (включая init-контейнеры) должны быть заданы
+          resources.requests и resources.limits для cpu и memory.
+        pattern:
+          spec:
+            containers:
+              - name: "*"
+                resources:
+                  requests: { memory: "?*", cpu: "?*" }
+                  limits:   { memory: "?*", cpu: "?*" }
+            =(initContainers):
+              - name: "*"
+                resources:
+                  requests: { memory: "?*", cpu: "?*" }
+                  limits:   { memory: "?*", cpu: "?*" }
+
+    # 2. Доверенный реестр образов
+    - name: require-trusted-registry
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: >-
+          Образ должен быть загружен из доверенного реестра:
+          registry.company.com, gcr.io или docker.io.
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "registry.company.com/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "gcr.io/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "docker.io/*"
+          - list: "request.object.spec.initContainers"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "registry.company.com/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "gcr.io/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "docker.io/*"
+
+    # 3. Обязательные метки
+    - name: require-labels
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: >-
+          Обязательные метки: app.kubernetes.io/name, owner и env.
+          Все три должны быть заданы и не пусты.
+        pattern:
+          metadata:
+            labels:
+              'app.kubernetes.io/name': "?*"
+              owner: "?*"
+              env: "?*"
+
+    # 4. Запрет :latest
+    - name: disallow-latest-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "Использование тега ':latest' запрещено. Укажите конкретную версию образа."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              image: "!*:latest"
+          - list: "request.object.spec.initContainers"
+            pattern:
+              image: "!*:latest"
+          - list: "request.object.spec.ephemeralContainers"
+            pattern:
+              image: "!*:latest"
+
+    # 5. Обязательные пробы
+    - name: require-probes
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: >-
+          Каждый контейнер должен иметь readinessProbe и livenessProbe.
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              readinessProbe: "*"
+              livenessProbe: "*"
