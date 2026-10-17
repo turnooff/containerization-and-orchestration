@@ -75,9 +75,13 @@ worker:
 
 
 postgres:
-  image:
-    repository: docker.io/library/postgres
-    tag: "16-alpine"
+  instances: 1
+  auth:
+    username: shop
+    password: shop
+    database: shop
+  storage:
+    size: 1Gi
   resources:
     requests:
       cpu: 100m
@@ -85,7 +89,3 @@ postgres:
     limits:
       cpu: 200m
       memory: 256Mi
-  auth:
-    username: postgres
-    password: postgres
-    database: shop

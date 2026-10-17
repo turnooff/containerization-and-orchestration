@@ -22,6 +22,11 @@ spec:
                 - kyverno
                 - monitoring
                 - local-path-storage
+                - cnpg-system
+          - resources:
+              selector:
+                matchLabels:
+                  cnpg.io/cluster: "*"
       validate:
         message: >-
           У каждого контейнера (включая init-контейнеры) должны быть заданы
@@ -55,6 +60,11 @@ spec:
                 - kyverno
                 - monitoring
                 - local-path-storage
+                - cnpg-system
+          - resources:
+              selector:
+                matchLabels:
+                  cnpg.io/cluster: "*"
       validate:
         message: >-
           Образ должен быть загружен из доверенного реестра:
@@ -109,6 +119,11 @@ spec:
                 - kyverno
                 - monitoring
                 - local-path-storage
+                - cnpg-system
+          - resources:
+              selector:
+                matchLabels:
+                  cnpg.io/cluster: "*"
       validate:
         message: >-
           Обязательные метки: app.kubernetes.io/name, owner и env.
@@ -136,6 +151,11 @@ spec:
                 - kyverno
                 - monitoring
                 - local-path-storage
+                - cnpg-system
+          - resources:
+              selector:
+                matchLabels:
+                  cnpg.io/cluster: "*"
       validate:
         message: "Использование тега ':latest' запрещено. Укажите конкретную версию образа."
         foreach:
@@ -165,6 +185,11 @@ spec:
                 - kyverno
                 - monitoring
                 - local-path-storage
+                - cnpg-system
+          - resources:
+              selector:
+                matchLabels:
+                  cnpg.io/cluster: "*"
       validate:
         message: >-
           Каждый контейнер должен иметь readinessProbe и livenessProbe.

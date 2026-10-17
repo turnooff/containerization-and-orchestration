@@ -25,11 +25,17 @@ spec:
               protocol: TCP
           env:
             - name: PGHOST
-              value: "{{ include "shop.fullname" . }}-postgres"
+              value: "{{ include "shop.fullname" . }}-postgres-rw"
             - name: PGUSER
-              value: {{ .Values.postgres.auth.username | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shop.fullname" . }}-postgres-app
+                  key: username
             - name: PGPASSWORD
-              value: {{ .Values.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shop.fullname" . }}-postgres-app
+                  key: password
             - name: PGDATABASE
               value: {{ .Values.postgres.auth.database | quote }}
             - name: PORT
