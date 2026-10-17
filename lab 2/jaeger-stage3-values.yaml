@@ -1,0 +1,10 @@
+# Часть 3: официальный чарт jaegertracing/jaeger версии 4.14.1.
+# В этой версии по умолчанию используется единый Jaeger 2 с хранением в памяти.
+# Старые трейсы теряются при перезапуске Jaeger; новые можно создать запросами к api.
+
+jaeger:
+  enabled: true
+  replicas: 1
+  image:
+    repository: jaegertracing/jaeger
+    tag: "2.21.0"
