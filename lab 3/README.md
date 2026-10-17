@@ -68,5 +68,5 @@
 а сервер продолжает отвечать 
 ![alt text](cache/image2_13.png)
 
-Rollback прошел успешно
+Rollback прошел успешно!!!!!!!
 ![alt text](cache/image2_14.png)
