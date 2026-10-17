@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shop.fullname" . }}-worker
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas | default 2 }}
+  selector:
+    matchLabels:
+      {{- include "shop.worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "shop.worker.podLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.worker.probes.readiness.port | default 8080 }}
+              protocol: TCP
+          env:
+            - name: PGHOST
+              value: "{{ include "shop.fullname" . }}-postgres"
+            - name: PGUSER
+              value: {{ .Values.postgres.auth.username | quote }}
+            - name: PGPASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.postgres.auth.database | quote }}
+            - name: PORT
+              value: "8080"
+            {{- range .Values.worker.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.worker.probes.readiness.path }}
+              port: {{ .Values.worker.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.worker.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.worker.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.worker.probes.liveness.path }}
+              port: {{ .Values.worker.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.worker.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.worker.probes.liveness.periodSeconds }}
+          resources:
+            requests:
+              cpu: {{ .Values.worker.resources.requests.cpu | quote }}
+              memory: {{ .Values.worker.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.worker.resources.limits.cpu | quote }}
+              memory: {{ .Values.worker.resources.limits.memory | quote }}

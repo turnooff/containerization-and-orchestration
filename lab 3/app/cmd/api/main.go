@@ -66,6 +66,9 @@ func main() {
 	}()
 
 	<-ctx.Done()
+	log.Print("api: draining (5s for endpoints propagation)")
+
+	time.Sleep(5 * time.Second)
 	log.Print("api: shutting down")
 
 	// Даём in-flight запросам доехать: во время rolling update это часть

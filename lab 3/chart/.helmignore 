@@ -1,0 +1,9 @@
+README.md
+
+.git/
+.gitignore
+
+*.bak
+*.tmp
+*.swp
+*~

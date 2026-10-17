@@ -12,6 +12,16 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - monitoring
+                - local-path-storage
       validate:
         message: >-
           У каждого контейнера (включая init-контейнеры) должны быть заданы
@@ -35,6 +45,16 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - monitoring
+                - local-path-storage
       validate:
         message: >-
           Образ должен быть загружен из доверенного реестра:
@@ -53,6 +73,9 @@ spec:
                   - key: "{{ element.image }}"
                     operator: NotEquals
                     value: "docker.io/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "localhost:5001/*"
           - list: "request.object.spec.initContainers"
             deny:
               conditions:
@@ -66,6 +89,9 @@ spec:
                   - key: "{{ element.image }}"
                     operator: NotEquals
                     value: "docker.io/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "localhost:5001/*"
 
     # 3. Обязательные метки
     - name: require-labels
@@ -73,6 +99,16 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - monitoring
+                - local-path-storage
       validate:
         message: >-
           Обязательные метки: app.kubernetes.io/name, owner и env.
@@ -90,6 +126,16 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - monitoring
+                - local-path-storage
       validate:
         message: "Использование тега ':latest' запрещено. Укажите конкретную версию образа."
         foreach:
@@ -109,6 +155,16 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - monitoring
+                - local-path-storage
       validate:
         message: >-
           Каждый контейнер должен иметь readinessProbe и livenessProbe.

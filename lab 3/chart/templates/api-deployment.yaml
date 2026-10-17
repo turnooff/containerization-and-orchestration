@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shop.fullname" . }}-api
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas | default 3 }}
+  selector:
+    matchLabels:
+      {{- include "shop.api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "shop.api.podLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: PGHOST
+              value: "{{ include "shop.fullname" . }}-postgres"
+            - name: PGUSER
+              value: {{ .Values.postgres.auth.username | quote }}
+            - name: PGPASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.postgres.auth.database | quote }}
+            - name: PORT
+              value: "8080"
+            {{- range .Values.api.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.api.probes.startup.path }}
+              port: {{ .Values.api.probes.startup.port }}
+            initialDelaySeconds: {{ .Values.api.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.api.probes.startup.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.readiness.path }}
+              port: {{ .Values.api.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.api.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.liveness.path }}
+              port: {{ .Values.api.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.api.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.liveness.periodSeconds }}
+          resources:
+            requests:
+              cpu: {{ .Values.api.resources.requests.cpu | quote }}
+              memory: {{ .Values.api.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.api.resources.limits.cpu | quote }}
+              memory: {{ .Values.api.resources.limits.memory | quote }}
