@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shop.fullname" . }}-batch
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+spec:
+  replicas: {{ .Values.batch.replicas }}
+  selector:
+    matchLabels:
+      {{- include "shop.batch.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "shop.batch.podLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: batch
+          image: "{{ .Values.batch.image.repository }}:{{ .Values.batch.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.batch.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.batch.probes.readiness.port | default 8080 }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            {{- range .Values.batch.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.batch.probes.readiness.path }}
+              port: {{ .Values.batch.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.batch.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.batch.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.batch.probes.liveness.path }}
+              port: {{ .Values.batch.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.batch.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.batch.probes.liveness.periodSeconds }}
+          resources:
+            requests:
+              cpu: {{ .Values.batch.resources.requests.cpu | quote }}
+              memory: {{ .Values.batch.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.batch.resources.limits.cpu | quote }}
+              memory: {{ .Values.batch.resources.limits.memory | quote }}
