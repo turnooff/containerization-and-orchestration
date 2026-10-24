@@ -44,6 +44,13 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.worker.probes.startup.path }}
+              port: {{ .Values.worker.probes.startup.port }}
+            initialDelaySeconds: {{ .Values.worker.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.worker.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.worker.probes.startup.failureThreshold }}
           readinessProbe:
             httpGet:
               path: {{ .Values.worker.probes.readiness.path }}

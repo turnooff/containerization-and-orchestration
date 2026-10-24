@@ -1,0 +1,117 @@
+{
+  "source": "Direct Prometheus queries; not a krr scan of CloudNativePG Cluster",
+  "context": "kind-lab4",
+  "namespace": "default",
+  "pod": "shop-postgres-1",
+  "container": "postgres",
+  "evaluation_time_unix": 1792840987,
+  "window_end_utc": "2026-10-24T11:23:07+00:00",
+  "window_start_utc": "2026-10-24T10:23:07+00:00",
+  "settings": {
+    "history_hours": 1,
+    "step_seconds": 30,
+    "cpu_rate_window_seconds": 30,
+    "cpu_percentile": 95,
+    "memory_buffer_percent": 15,
+    "cpu_min_millicores": 10,
+    "memory_min_MiB": 100
+  },
+  "queries": {
+    "cpu_p95_millicores": "quantile_over_time(0.95, (max by (container, pod, job) (rate(container_cpu_usage_seconds_total{namespace=\"default\",pod=\"shop-postgres-1\",container=\"postgres\"}[30s])))[1h:30s] @ 1792840987) * 1000",
+    "memory_peak_bytes": "max_over_time((max by (container, pod, job) (container_memory_working_set_bytes{namespace=\"default\",pod=\"shop-postgres-1\",container=\"postgres\"}))[1h:30s] @ 1792840987)",
+    "cpu_points": "count_over_time((max by (container, pod, job) (container_cpu_usage_seconds_total{namespace=\"default\",pod=\"shop-postgres-1\",container=\"postgres\"}))[1h:30s] @ 1792840987)",
+    "memory_points": "count_over_time((max by (container, pod, job) (container_memory_working_set_bytes{namespace=\"default\",pod=\"shop-postgres-1\",container=\"postgres\"}))[1h:30s] @ 1792840987)"
+  },
+  "results": {
+    "cpu_p95_millicores": 15.773801223390018,
+    "memory_peak_bytes": 167809024.0,
+    "cpu_points": 120.0,
+    "memory_points": 120.0
+  },
+  "estimate": {
+    "cpu_request_millicores_rounded_up": 16,
+    "memory_peak_MiB": 160.03515625,
+    "memory_plus_buffer_MiB": 184.0404296875,
+    "memory_request_and_limit_MiB_rounded_up": 185,
+    "cpu_limit": null
+  },
+  "raw_prometheus_responses": {
+    "cpu_p95_millicores": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "container": "postgres",
+              "job": "kubelet",
+              "pod": "shop-postgres-1"
+            },
+            "value": [
+              1792840987,
+              "15.773801223390018"
+            ]
+          }
+        ]
+      }
+    },
+    "memory_peak_bytes": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "container": "postgres",
+              "job": "kubelet",
+              "pod": "shop-postgres-1"
+            },
+            "value": [
+              1792840987,
+              "167809024"
+            ]
+          }
+        ]
+      }
+    },
+    "cpu_points": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "container": "postgres",
+              "job": "kubelet",
+              "pod": "shop-postgres-1"
+            },
+            "value": [
+              1792840987,
+              "120"
+            ]
+          }
+        ]
+      }
+    },
+    "memory_points": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "container": "postgres",
+              "job": "kubelet",
+              "pod": "shop-postgres-1"
+            },
+            "value": [
+              1792840987,
+              "120"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "applied": false
+}

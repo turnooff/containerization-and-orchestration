@@ -1,0 +1,131 @@
+owner: team-a
+env: dev
+
+api:
+  replicas: 3
+  placement:
+    mode: topologySpreadConstraints
+    topologySpreadConstraints:
+      maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: api
+  image:
+    repository: localhost:5001/shop-api
+    tag: "1.0.4"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  probes:
+    startup:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 30
+    readiness:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 20
+  env: []
+
+worker:
+  replicas: 2
+  image:
+    repository: localhost:5001/shop-worker
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  probes:
+    startup:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 30
+    readiness:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 20
+  env:
+    - name: POLL_INTERVAL
+      value: "2s"
+    - name: BATCH_SIZE
+      value: "20"
+
+
+batch:
+  replicas: 1
+  image:
+    repository: localhost:5001/shop-batch
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  # Начальные ресурсы скопированы из worker для первого запуска.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  probes:
+    readiness:
+      path: /ready
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /health
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 20
+  env:
+    - name: CPU_WORKERS
+      value: "1"
+    - name: MEMORY_MIB
+      value: "64"
+
+postgres:
+  instances: 1
+  auth:
+    username: shop
+    password: shop
+    database: shop
+  storage:
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

@@ -22,11 +22,11 @@ api:
     targetPort: 8080
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 10m
+      memory: 100Mi
     limits:
       cpu: 200m
-      memory: 256Mi
+      memory: 100Mi
   probes:
     startup:
       path: /health
@@ -54,11 +54,11 @@ worker:
     pullPolicy: IfNotPresent
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 10m
+      memory: 100Mi
     limits:
       cpu: 100m
-      memory: 128Mi
+      memory: 100Mi
   probes:
     startup:
       path: /health
@@ -124,8 +124,8 @@ postgres:
     size: 1Gi
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 16m
+      memory: 185Mi
     limits:
       cpu: 200m
-      memory: 256Mi
+      memory: 185Mi
