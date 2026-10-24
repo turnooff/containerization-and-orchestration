@@ -8,10 +8,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"lab3/internal/db"
 	"lab3/internal/health"
@@ -28,6 +32,47 @@ type Order struct {
 
 type API struct {
 	pool *pgxpool.Pool
+}
+
+var (
+	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "shop",
+		Subsystem: "api",
+		Name:      "http_requests_total",
+		Help:      "HTTP requests by path, method, status code",
+	}, []string{"path", "method", "status"})
+
+	httpRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "shop",
+		Subsystem: "api",
+		Name:      "http_request_duration_seconds",
+		Help:      "HTTP request duration in seconds",
+		Buckets:   []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+	}, []string{"path", "method"})
+)
+
+// responseWriter перехватывает HTTP-статус, чтобы записать его в метрику.
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rw, r)
+
+		dur := time.Since(start).Seconds()
+		path := r.URL.Path
+		httpRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.status)).Inc()
+		httpRequestDuration.WithLabelValues(path, r.Method).Observe(dur)
+	})
 }
 
 func main() {
@@ -50,11 +95,19 @@ func main() {
 	mux.HandleFunc("GET /health", health.Handler())
 	mux.HandleFunc("POST /order", api.createOrder)
 	mux.HandleFunc("GET /orders", api.listOrders)
+	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.HandleFunc("GET /fail", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "test error")
+	})
+	mux.HandleFunc("GET /slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(800 * time.Millisecond)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "slow ok"})
+	})
 
 	addr := ":" + getenv("PORT", "8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           logRequests(mux),
+		Handler:           metricsMiddleware(logRequests(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -67,12 +120,12 @@ func main() {
 
 	<-ctx.Done()
 	log.Print("api: draining (5s for endpoints propagation)")
-
+	// kube-proxy успевает обновить iptables и убрать нас из Endpoints,
+	// прежде чем мы закроем listener. Это закрывает гонку на SIGTERM,
+	// из-за которой часть in-flight запросов получала connection refused.
 	time.Sleep(5 * time.Second)
 	log.Print("api: shutting down")
 
-	// Даём in-flight запросам доехать: во время rolling update это часть
-	// «ни один запрос не упал».
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
