@@ -15,6 +15,7 @@ spec:
       labels:
         {{- include "shop.batch.podLabels" . | nindent 8 }}
     spec:
+      priorityClassName: {{ .Values.priorityClasses.batch.name | quote }}
       containers:
         - name: batch
           image: "{{ .Values.batch.image.repository }}:{{ .Values.batch.image.tag | default .Chart.AppVersion }}"

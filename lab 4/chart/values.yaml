@@ -1,6 +1,14 @@
 owner: team-a
 env: dev
 
+priorityClasses:
+  critical:
+    name: shop-critical
+    value: 1000
+  batch:
+    name: shop-batch
+    value: -10
+
 api:
   replicas: 3
   placement:
@@ -12,6 +20,9 @@ api:
       labelSelector:
         matchLabels:
           app.kubernetes.io/component: api
+    podAntiAffinity:
+      topologyKey: kubernetes.io/hostname
+      weight: 100
   image:
     repository: localhost:5001/shop-api
     tag: "1.0.4"
@@ -20,9 +31,12 @@ api:
     type: ClusterIP
     port: 80
     targetPort: 8080
+  pdb:
+    enabled: true
+    minAvailable: 2
   resources:
     requests:
-      cpu: 10m
+      cpu: 200m
       memory: 100Mi
     limits:
       cpu: 200m
@@ -89,7 +103,6 @@ batch:
     repository: localhost:5001/shop-batch
     tag: "1.0.0"
     pullPolicy: IfNotPresent
-  # Начальные ресурсы скопированы из worker для первого запуска.
   resources:
     requests:
       cpu: 50m
@@ -116,6 +129,8 @@ batch:
 
 postgres:
   instances: 1
+  pdb:
+    enabled: true
   auth:
     username: shop
     password: shop
@@ -124,7 +139,7 @@ postgres:
     size: 1Gi
   resources:
     requests:
-      cpu: 16m
+      cpu: 200m
       memory: 185Mi
     limits:
       cpu: 200m

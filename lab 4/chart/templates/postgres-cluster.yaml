@@ -6,6 +6,8 @@ metadata:
   labels:
     {{- include "shop.labels" . | nindent 4 }}
 spec:
+  priorityClassName: {{ .Values.priorityClasses.critical.name | quote }}
+  enablePDB: {{ .Values.postgres.pdb.enabled }}
   instances: {{ .Values.postgres.instances | default 1 }}
   storage:
     size: {{ .Values.postgres.storage.size | default "1Gi" }}
