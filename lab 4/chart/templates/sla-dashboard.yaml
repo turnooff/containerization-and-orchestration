@@ -1,0 +1,22 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "shop.fullname" . }}-sla-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  shop-sla.json: |
+    {{- .Files.Get "dashboards/shop-sla.json"
+      | replace "__NAMESPACE__" .Release.Namespace
+      | replace "__API_SERVICE__" (printf "%s-api" (include "shop.fullname" .))
+      | replace "__FULLNAME__" (include "shop.fullname" .)
+      | replace "__DASHBOARD_UID__" .Values.monitoring.dashboard.uid
+      | replace "__DATASOURCE_UID__" .Values.monitoring.dashboard.datasourceUid
+      | replace "__SLA_RPS__" (toString .Values.monitoring.sla.requestsPerSecond)
+      | replace "__SLA_P95_MS__" (toString .Values.monitoring.sla.p95Milliseconds)
+      | replace "__SLA_ERROR_PERCENT__" (toString .Values.monitoring.sla.errorPercent)
+      | nindent 4 }}
+{{- end }}

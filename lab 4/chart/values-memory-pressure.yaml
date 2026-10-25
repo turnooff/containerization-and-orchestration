@@ -1,11 +1,13 @@
-# Часть 7: применять поверх обычного values.yaml после подготовки kubelet:
+# Часть 7/8: сначала prepare на обычном лёгком batch (порог ещё не включается).
 # python3 "lab 4/memory-pressure.py" prepare
 # helm upgrade shop "lab 4/chart" --kube-context kind-lab4 --namespace default --reset-values \
-#   -f "lab 4/chart/values-memory-pressure.yaml"
-# После первого eviction:
-# python3 "lab 4/memory-pressure.py" restore
+#   -f "lab 4/chart/values-memory-pressure.yaml" --wait --timeout 5m
+# Затем включить мягкий порог и автоматически снять его после первого eviction:
+# python3 "lab 4/memory-pressure.py" trigger
+# После завершения trigger вернуть обычный Helm-профиль:
 # helm upgrade shop "lab 4/chart" --kube-context kind-lab4 --namespace default --reset-values \
-#   --wait --timeout 5m
+#   --wait --timeout 10m
+# Аварийное восстановление порога: python3 "lab 4/memory-pressure.py" restore
 batch:
   replicas: 1
   nodeSelector:

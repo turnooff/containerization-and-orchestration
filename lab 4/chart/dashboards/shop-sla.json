@@ -1,0 +1,871 @@
+{
+  "uid": "__DASHBOARD_UID__",
+  "title": "Shop SLA",
+  "description": "Часть 8: SLA создания заказа во время preemption и memory-pressure eviction. Пределы: 10 заказов/с, p95 < 300 мс, ошибки <= 1%.",
+  "tags": [
+    "shop",
+    "lab4",
+    "sla"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "POST /order — запросы в секунду",
+      "description": "Скорость ответов API по HTTP-кодам за 1 минуту. Цель нагрузки — 10 запросов/с; источник истины по отправленным запросам — k6.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "axisSoftMax": 12
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HTTP 201"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Цель нагрузки"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum by (status) (rate(shop_api_http_requests_total{namespace=\"__NAMESPACE__\",service=\"__API_SERVICE__\",path=\"/order\",method=\"POST\"}[1m]))",
+          "legendFormat": "HTTP {{status}}",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "vector(__SLA_RPS__)",
+          "legendFormat": "Цель нагрузки",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "POST /order — задержка p50 / p95",
+      "description": "Серверное время обработки, оценка по гистограмме за 1 минуту. Квантиль агрегирован по всем репликам. Клиентское время и точная проверка SLA находятся в отчёте k6.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "axisSoftMax": 350
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Граница SLA"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "1000 * histogram_quantile(0.50, sum by (le) (rate(shop_api_http_request_duration_seconds_bucket{namespace=\"__NAMESPACE__\",service=\"__API_SERVICE__\",path=\"/order\",method=\"POST\"}[1m])))",
+          "legendFormat": "p50",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(shop_api_http_request_duration_seconds_bucket{namespace=\"__NAMESPACE__\",service=\"__API_SERVICE__\",path=\"/order\",method=\"POST\"}[1m])))",
+          "legendFormat": "p95",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "vector(__SLA_P95_MS__)",
+          "legendFormat": "Граница SLA",
+          "refId": "C",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "POST /order — доля ответов, отличных от 201",
+      "description": "Процент ответов API с кодом != 201 за 1 минуту. При отсутствии запросов значение не определено. Сетевые ошибки и проверку id дополнительно учитывает k6.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "axisSoftMax": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ошибки, %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Допустимая доля ошибок"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "100 * ((sum(rate(shop_api_http_requests_total{namespace=\"__NAMESPACE__\",service=\"__API_SERVICE__\",path=\"/order\",method=\"POST\",status!=\"201\"}[1m])) or vector(0)) / sum(rate(shop_api_http_requests_total{namespace=\"__NAMESPACE__\",service=\"__API_SERVICE__\",path=\"/order\",method=\"POST\"}[1m])))",
+          "legendFormat": "Ошибки, %",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "vector(__SLA_ERROR_PERCENT__)",
+          "legendFormat": "Допустимая доля ошибок",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "API — готовые и требуемые реплики",
+      "description": "Сравнение готовности с желаемым числом реплик, в том числе при масштабировании для preemption.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Готовы"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Требуется"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum(kube_pod_status_ready{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-api-.*\",condition=\"true\"})",
+          "legendFormat": "Готовы",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "kube_deployment_spec_replicas{namespace=\"__NAMESPACE__\",deployment=\"__FULLNAME__-api\"}",
+          "legendFormat": "Требуется",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU — API, PostgreSQL и batch",
+      "description": "Фактическое потребление в миллиядрах (1000m = одно ядро), а не сумма requests.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:mCPU",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-api-.*\",container!=\"\",container!=\"POD\"}[1m])) * 1000",
+          "legendFormat": "API",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-postgres-.*\",container!=\"\",container!=\"POD\"}[1m])) * 1000",
+          "legendFormat": "PostgreSQL",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-batch-.*\",container!=\"\",container!=\"POD\"}[1m])) * 1000",
+          "legendFormat": "batch",
+          "refId": "C",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Память batch",
+      "description": "Рабочее потребление по pod в MiB. Исчезновение линии нужно сопоставлять с событиями Evicted/Preempted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:MiB",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-batch-.*\",container!=\"\",container!=\"POD\"}) / 1024^2",
+          "legendFormat": "{{pod}}",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "batch — Pending",
+      "description": "Количество подов batch в Pending. Причину ожидания подтверждают события планировщика.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "sum(kube_pod_status_phase{namespace=\"__NAMESPACE__\",pod=~\"__FULLNAME__-batch-.*\",phase=\"Pending\"})",
+          "legendFormat": "Pending",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Worker — MemoryPressure",
+      "description": "0: давление не зафиксировано; 1: kubelet зафиксировал давление. Это состояние может сохраняться после восстановления.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "__DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "axisSoftMax": 1
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MemoryPressure"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "__DATASOURCE_UID__"
+          },
+          "expr": "kube_node_status_condition{node=\"lab4-worker\",condition=\"MemoryPressure\",status=\"true\"}",
+          "legendFormat": "MemoryPressure",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    }
+  ]
+}

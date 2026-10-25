@@ -1,0 +1,10 @@
+# Часть 6/8: создать Pending. Применять поверх обычного values.yaml.
+# helm upgrade shop "lab 4/chart" --kube-context kind-lab4 -n default --reset-values \
+#   -f "lab 4/chart/values-cpu-pressure.yaml"
+batch:
+  replicas: 8
+  resources:
+    requests:
+      cpu: "2"
+    limits:
+      cpu: "3"
