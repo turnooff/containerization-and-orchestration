@@ -1,0 +1,30 @@
+# Часть 7: применять поверх обычного values.yaml после подготовки kubelet:
+# python3 "lab 4/memory-pressure.py" prepare
+# helm upgrade shop "lab 4/chart" --kube-context kind-lab4 --namespace default --reset-values \
+#   -f "lab 4/chart/values-memory-pressure.yaml"
+# После первого eviction:
+# python3 "lab 4/memory-pressure.py" restore
+# helm upgrade shop "lab 4/chart" --kube-context kind-lab4 --namespace default --reset-values \
+#   --wait --timeout 5m
+batch:
+  replicas: 1
+  nodeSelector:
+    kubernetes.io/hostname: lab4-worker
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 2Gi
+  probes:
+    startup:
+      path: /health
+      port: 8080
+      periodSeconds: 5
+      failureThreshold: 60
+  env:
+    - name: CPU_WORKERS
+      value: "1"
+    - name: MEMORY_MIB
+      value: "1280"

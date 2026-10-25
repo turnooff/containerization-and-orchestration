@@ -99,6 +99,7 @@ worker:
 
 batch:
   replicas: 1
+  nodeSelector: {}
   image:
     repository: localhost:5001/shop-batch
     tag: "1.0.0"

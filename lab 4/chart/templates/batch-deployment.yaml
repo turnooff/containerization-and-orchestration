@@ -16,6 +16,10 @@ spec:
         {{- include "shop.batch.podLabels" . | nindent 8 }}
     spec:
       priorityClassName: {{ .Values.priorityClasses.batch.name | quote }}
+      {{- with .Values.batch.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: batch
           image: "{{ .Values.batch.image.repository }}:{{ .Values.batch.image.tag | default .Chart.AppVersion }}"
@@ -31,6 +35,14 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+          {{- with .Values.batch.probes.startup }}
+          startupProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ .port }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: {{ .Values.batch.probes.readiness.path }}
