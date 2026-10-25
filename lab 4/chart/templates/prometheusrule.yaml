@@ -1,0 +1,67 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheusRule.enabled }}
+{{- $apiService := printf "%s-api" (include "shop.fullname" .) }}
+{{- $window := .Values.monitoring.prometheusRule.window }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "shop.fullname" . }}-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "shop.fullname" . }}.sla
+      interval: {{ .Values.monitoring.prometheusRule.interval }}
+      rules:
+        - alert: ShopBatchPending
+          expr: |
+            sum(kube_pod_status_phase{namespace={{ .Release.Namespace | quote }},pod=~{{ printf "%s-batch-.*" (include "shop.fullname" .) | quote }},phase="Pending"}) > 0
+          for: {{ .Values.monitoring.prometheusRule.batchPendingFor }}
+          labels:
+            severity: warning
+            namespace: {{ .Release.Namespace | quote }}
+            service: {{ printf "%s-batch" (include "shop.fullname" .) | quote }}
+          annotations:
+            summary: "Batch остаётся в Pending"
+            description: "Есть batch в состоянии Pending более минуты. Проверить события пода: нехватку ресурсов, условия размещения или загрузку образа."
+
+        - alert: ShopOrderHighErrorRate
+          expr: |
+            (
+              100 * (
+                sum(rate(shop_api_http_requests_total{namespace={{ .Release.Namespace | quote }},service={{ $apiService | quote }},path="/order",method="POST",status!="201"}[{{ $window }}])) or vector(0)
+              )
+              / sum(rate(shop_api_http_requests_total{namespace={{ .Release.Namespace | quote }},service={{ $apiService | quote }},path="/order",method="POST"}[{{ $window }}]))
+            ) > {{ .Values.monitoring.sla.errorPercent }}
+            and
+            sum(increase(shop_api_http_requests_total{namespace={{ .Release.Namespace | quote }},service={{ $apiService | quote }},path="/order",method="POST"}[{{ $window }}])) >= {{ .Values.monitoring.prometheusRule.minimumOrderRequests }}
+          for: {{ .Values.monitoring.prometheusRule.orderErrorFor }}
+          labels:
+            severity: warning
+            namespace: {{ .Release.Namespace | quote }}
+            service: {{ $apiService | quote }}
+          annotations:
+            summary: "Слишком много неподтверждённых заказов"
+            description: {{ printf "Более %v%% ответов POST /order отличаются от 201 за окно %s; минимум %v запросов. Учитываются 4xx и 5xx, а не только серверные ошибки." .Values.monitoring.sla.errorPercent $window .Values.monitoring.prometheusRule.minimumOrderRequests | quote }}
+
+        - alert: ShopOrderHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (
+                rate(shop_api_http_request_duration_seconds_bucket{namespace={{ .Release.Namespace | quote }},service={{ $apiService | quote }},path="/order",method="POST"}[{{ $window }}])
+              )
+            ) > {{ divf .Values.monitoring.sla.p95Milliseconds 1000 }}
+            and
+            sum(increase(shop_api_http_requests_total{namespace={{ .Release.Namespace | quote }},service={{ $apiService | quote }},path="/order",method="POST"}[{{ $window }}])) >= {{ .Values.monitoring.prometheusRule.minimumOrderRequests }}
+          for: {{ .Values.monitoring.prometheusRule.orderLatencyFor }}
+          labels:
+            severity: warning
+            namespace: {{ .Release.Namespace | quote }}
+            service: {{ $apiService | quote }}
+          annotations:
+            summary: "Заказы выполняются медленнее SLA"
+            description: {{ printf "Серверный p95 POST /order выше %v мс за окно %s; минимум %v запросов. Проверить CPU throttling API, PostgreSQL и соседние нагрузки." .Values.monitoring.sla.p95Milliseconds $window .Values.monitoring.prometheusRule.minimumOrderRequests | quote }}
+{{- end }}

@@ -151,6 +151,16 @@ monitoring:
   serviceMonitor:
     interval: 15s
     scrapeTimeout: 10s
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kps
+    interval: 15s
+    window: 2m
+    minimumOrderRequests: 20
+    batchPendingFor: 1m
+    orderErrorFor: 1m
+    orderLatencyFor: 2m
   dashboard:
     enabled: true
     uid: shop-sla
