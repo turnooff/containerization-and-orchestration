@@ -46,6 +46,36 @@
 
 # Шаг 4 - egress и ingress - части одного целого.
 Все заработало, но не с первого раза. Сначала была проблема с подключением api к postgres. Оказалось, что egress и ingress должны дополнять друг друга и если одного нет, то и другое работать не будет, потому что default-deny блокировал все входящее. 
-![alt text](image.png)
+![alt text](cache/image4_1.png)
 
+# Шаг 5 - я тестировщик
+внешний клиент обращается к api - успех
+![alt text](cache/image5_1.png)
 
+от непонятного пода (debug) к postgres - отказ
+![alt text](cache/image5_2.png)
+
+от api к postgres - успех
+![alt text](cache/image5_3.png)
+
+от worker к postgres - успех
+![alt text](cache/image5_4.png)
+
+от debug к dns - успех
+![alt text](cache/image5_5.png)
+
+от debug в интернет - отказ
+![alt text](cache/image5_6.png)
+
+worker обрабатывает заказ - успех
+![alt text](cache/image5_7.png)
+
+| # | Источник | Назначение | Порт | Ожидаемо | Фактически | Команда проверки | Ожидаемо == Фактически ? |
+|---|---|---|---|---|---|---|---|
+| 1 | Внешний клиент | `api` | 8080 | да | 200 OK | `curl 127.0.0.1:30000/health` | ✅ |
+| 2 | Под `debug` | `postgres` | 5432 | нет | timed out | `kubectl exec debug -- nc -zv $PG_IP 5432` | ✅ |
+| 3 | Под `api` | `postgres` | 5432 | да | succeeded! | `kubectl debug api -- nc -zv $PG_IP 5432` | ✅ |
+| 4 | Под `worker` | `postgres` | 5432 | да | succeeded! | `kubectl debug worker -- nc -zv $PG_IP 5432` | ✅ |
+| 5 | Под `debug` | DNS (CoreDNS) | 53 | да | IP получен | `kubectl exec debug -- nslookup shop-postgres-rw` | ✅ |
+| 6 | Под `debug` | Внешний интернет | 443 | нет | timeout | `kubectl exec debug -- wget https://google.com` | ✅ |
+| 7 | Под `worker` | `postgres` (бизнес-логика) | 5432 | да | order processed | `kubectl logs worker` → "processed 1 order(s)" | ✅ |
