@@ -8,9 +8,10 @@ api:
     tag: "1.0.5"
     pullPolicy: IfNotPresent
   service:
-    type: ClusterIP
+    type: NodePort
     port: 80
     targetPort: 8080
+    nodePort: 30000
   resources:
     requests:
       cpu: 100m

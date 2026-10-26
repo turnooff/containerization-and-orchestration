@@ -11,6 +11,8 @@ spec:
     - name: http
       port: {{ .Values.api.service.port }}
       targetPort: {{ .Values.api.service.targetPort }}
-      protocol: TCP
+      {{- if eq .Values.api.service.type "NodePort" }}
+      nodePort: {{ .Values.api.service.nodePort }}
+      {{- end }}
   selector:
     {{- include "shop.api.selectorLabels" . | nindent 4 }}
