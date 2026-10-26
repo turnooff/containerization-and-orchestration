@@ -1,0 +1,44 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "shop.fullname" . }}-cilium-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+    release: monitoring
+spec:
+  groups:
+    - name: cilium.rules
+      rules:
+        - alert: CiliumPolicyDrops
+          expr: |
+            sum(rate(cilium_drop_count_total{reason="Policy denied"}[5m])) > 0.5
+          for: 30s
+          labels:
+            severity: warning
+            service: cilium
+          annotations:
+            summary: "Высокий уровень блокировок трафика политиками"
+            description: "Cilium сбрасывает > 0.5 пакетов/сек из-за NetworkPolicy в течение 30 секунд."
+
+        - alert: CiliumDNSFailures
+          expr: |
+            sum(rate(cilium_dns_responses_total{rcode=~"NXDOMAIN|SERVFAIL"}[5m])) > 5
+          for: 1m
+          labels:
+            severity: warning
+            service: cilium
+          annotations:
+            summary: "Высокий уровень ошибок DNS в Cilium"
+            description: "Cilium DNS proxy фиксирует > 5 ошибок/сек (NXDOMAIN/SERVFAIL) в течение 1 минуты."
+
+        - alert: CiliumAgentDown
+          expr: |
+            up{job="cilium-agent"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: cilium
+          annotations:
+            summary: "Cilium Agent недоступен"
+            description: "Prometheus не может собрать метрики с Cilium Agent более 1 минуты."
