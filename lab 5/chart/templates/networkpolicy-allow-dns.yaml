@@ -1,0 +1,24 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "shop.fullname" . }}-allow-dns
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.namespaceLabelKey }}: {{ .Values.networkPolicy.dns.namespaceLabelValue | quote }}
+          podSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.podLabelKey }}: {{ .Values.networkPolicy.dns.podLabelValue | quote }}
+      ports:
+        - protocol: UDP
+          port: {{ .Values.networkPolicy.dns.udpPort }}
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.dns.tcpPort }}
+{{- end }}

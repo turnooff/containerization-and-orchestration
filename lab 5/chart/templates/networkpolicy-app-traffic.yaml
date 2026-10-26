@@ -1,0 +1,64 @@
+{{- if .Values.networkPolicy.enabled }}
+# Ingress: разрешаем внешний трафик на api (NodePort)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "shop.fullname" . }}-api-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {{- include "shop.api.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.api.ingressPort }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "shop.fullname" . }}-db-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          {{- range .Values.networkPolicy.db.allowedSourceComponents }}
+          - {{ . }}
+          {{- end }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.db.clusterLabelKey }}: {{ .Values.networkPolicy.db.clusterLabelValue | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.db.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "shop.fullname" . }}-db-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{ .Values.networkPolicy.db.clusterLabelKey }}: {{ .Values.networkPolicy.db.clusterLabelValue | quote }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.db.allowedSourceComponents }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: {{ . }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.db.port }}
+{{- end }}

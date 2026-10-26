@@ -93,3 +93,23 @@ postgres:
 
 monitoring:
   enabled: true
+
+networkPolicy:
+  enabled: true
+
+  api:
+    ingressPort: 8080
+  db:
+    port: 5432
+    clusterLabelKey: cnpg.io/cluster
+    clusterLabelValue: shop-postgres
+    allowedSourceComponents:
+      - api
+      - worker
+  dns:
+    namespaceLabelKey: kubernetes.io/metadata.name
+    namespaceLabelValue: kube-system
+    podLabelKey: k8s-app
+    podLabelValue: kube-dns
+    udpPort: 53
+    tcpPort: 53
