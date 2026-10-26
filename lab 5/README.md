@@ -79,3 +79,13 @@ worker обрабатывает заказ - успех
 | 5 | Под `debug` | DNS (CoreDNS) | 53 | да | IP получен | `kubectl exec debug -- nslookup shop-postgres-rw` | ✅ |
 | 6 | Под `debug` | Внешний интернет | 443 | нет | timeout | `kubectl exec debug -- wget https://google.com` | ✅ |
 | 7 | Под `worker` | `postgres` (бизнес-логика) | 5432 | да | order processed | `kubectl logs worker` → "processed 1 order(s)" | ✅ |
+
+# Шаг 6 - я не Трелони
+Поменял номер порта с 8080 на 9999, попробовал установить соединение, но оно заблокировалось из-за того, что разрешен только 9999, а под слушает 8080
+![alt text](cache/image6_1.png)
+
+Чтобы не гадать, как некоторые горе прорицательницы, открыл Hubble. На ней видно, что красная линия идет на порт 8080 от внешних источников: клиента и прометеуса, а снизу в таблице написано dropped у обращения к порту 8080. 
+![alt text](cache/image6_2.png)
+
+Починил соединение
+![alt text](cache/image6_3.png)
