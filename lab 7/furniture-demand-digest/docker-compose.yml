@@ -1,0 +1,128 @@
+services:
+  n8n:
+    image: n8nio/n8n:2.43.8                     # закреплённая версия, не плавающий latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"                   # только localhost, не 0.0.0.0
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow          # таймзона для Schedule Trigger
+      - TZ=Europe/Moscow
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?задай N8N_ENCRYPTION_KEY в .env}
+      - N8N_RESTRICT_FILE_ACCESS_TO=/reports    # файловые ноды n8n могут писать только сюда
+      - N8N_METRICS=true                        # /metrics в формате Prometheus
+    volumes:
+      - n8n_data:/home/node/.n8n                # SQLite-база, credentials, executions
+      - ./reports:/reports                      # отчёты агента попадают в ./reports на хосте
+  postgres:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=furniture
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?задай в .env}
+      - MCP_READER_PASSWORD=${MCP_READER_PASSWORD:?задай в .env}
+      - N8N_DB_PASSWORD=${N8N_DB_PASSWORD:?задай в .env}
+      - TZ=Europe/Moscow
+    command: ["postgres", "-c", "timezone=Europe/Moscow"]
+    volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d furniture"]
+      interval: 5s
+      retries: 10
+
+  sales-mcp:
+    build: ./sales-mcp                          # собираем из своего Dockerfile
+    restart: unless-stopped
+    environment:
+      - DB_HOST=postgres                        # имя сервиса = DNS-имя в сети compose
+      - DB_USER=mcp_reader
+      - DB_PASSWORD=${MCP_READER_PASSWORD:?задай в .env}   # read-only пользователь, не суперпользователь
+      - TZ=Europe/Moscow
+    depends_on:
+      postgres:
+        condition: service_healthy              # ждём, пока база реально принимает подключения
+    # ports не публикуем: n8n ходит сюда по http://sales-mcp:8000/mcp внутри сети compose
+
+  mock-marketing:
+    image: python:3.12-alpine
+    user: "1000:1000"                           # файлы на хосте будут принадлежать пользователю, а не root
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - ./mock:/mock:ro
+      - ./marketing:/out
+    command: ["python", "-I", "/mock/generate_marketing.py", "/out"]
+    restart: "no"                               # one-shot: отработал и завершился
+
+  files-mcp:
+    build: ./files-mcp
+    restart: unless-stopped
+    volumes:
+      - ./marketing:/data/marketing:ro          # read-only: write_file/move_file упрутся в EROFS
+    depends_on:
+      mock-marketing:
+        condition: service_completed_successfully   # стартуем, когда календарь уже сгенерирован
+    # n8n ходит сюда по http://files-mcp:8000/mcp
+
+  # ---------- мониторинг ----------
+
+  prometheus:
+    image: prom/prometheus:v3.13.4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"                   # только для отладки с ноутбука
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prom_data:/prometheus
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.28.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.54.1
+    restart: unless-stopped
+    # Доступ к Docker хоста — осознанный компромисс: всё только на чтение, порт не публикуем
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    devices:
+      - /dev/kmsg
+    command: ["--docker_only=true", "--housekeeping_interval=15s"]
+
+  digest-exporter:
+    build: ./digest-exporter
+    restart: unless-stopped
+    environment:
+      - N8N_URL=http://n8n:5678
+      - N8N_API_KEY=${N8N_API_KEY:?задай в .env}
+      - MODEL_DAILY_QUOTA=50                    # лимит free-models-per-day без пополнения OpenRouter
+    volumes:
+      - ./reports:/reports:ro                   # читает отчёты, писать не может
+    # порт не публикуем: Prometheus ходит сюда по digest-exporter:9200
+
+  grafana:
+    image: grafana/grafana:13.0.11
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?задай в .env}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  n8n_data:
+  prom_data:
+  grafana_data:

@@ -1,0 +1,14 @@
+modules:
+  # n8n: HTTP-проверка health-эндпоинта, ждём 200
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+
+  # MCP-серверы и Postgres: достаточно, что порт принимает TCP-подключения
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4

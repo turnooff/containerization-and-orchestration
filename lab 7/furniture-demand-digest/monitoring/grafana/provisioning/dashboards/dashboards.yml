@@ -1,0 +1,6 @@
+apiVersion: 1
+providers:
+  - name: lab8
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Собственные метрики n8n (включаются N8N_METRICS=true)
+  - job_name: n8n
+    static_configs:
+      - targets: ["n8n:5678"]
+
+  # Доступность сервисов снаружи: blackbox сам ходит к цели,
+  # а Prometheus спрашивает у blackbox результат (probe_success).
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://n8n:5678/healthz"]
+        labels: { service: n8n }
+    relabel_configs: &blackbox_relabel
+      - source_labels: [__address__]
+        target_label: __param_target     # адрес цели уходит параметром ?target=
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115       # а сам запрос идёт в blackbox
+
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["sales-mcp:8000"]
+        labels: { service: sales-mcp }
+      - targets: ["files-mcp:8000"]
+        labels: { service: files-mcp }
+      - targets: ["postgres:5432"]
+        labels: { service: postgres }
+    relabel_configs: *blackbox_relabel
+
+  # Метрики процесса: запуски, аномалии/отчёты, вызовы модели, квота
+  - job_name: digest-exporter
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["digest-exporter:9200"]
+
+  # Контейнеры: перезапуски, ресурсы
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+    metric_relabel_configs:
+      # оставляем только контейнеры нашего проекта, чтобы не тащить весь хост
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: furniture-demand-digest
+        action: keep

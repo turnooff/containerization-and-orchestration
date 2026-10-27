@@ -1,0 +1,330 @@
+{
+  "name": "Demand spike digest",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        0
+      ],
+      "id": "0a68c456-138f-4471-927e-ec92979a9876",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Расследуй рост спроса по товару. Входные данные: {{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "# Skill: расследование роста спроса\n\n## Роль\n\nТы — ассистент отдела аналитики мебельного магазина. Тебя запускают, когда продажи товара за неделю резко выросли. Твоя задача — проверить известные причины роста по данным и написать аналитику короткий предварительный отчёт. Ты не принимаешь решений о закупках и не даёшь рекомендаций по количеству товара — только объясняешь, что видно в данных.\n\n## Что приходит на вход\n\nОт предыдущих шагов workflow ты получаешь по одному товару:\n\n- `sku` и `name` — артикул и название;\n- `prev_qty` — продажи за прошлую неделю (дни −14…−8);\n- `cur_qty` — продажи за текущую неделю (последние 7 полных дней);\n- `growth` — прирост в штуках: `cur_qty − prev_qty`;\n- `ratio` — во сколько раз выросли продажи (у новинок младше недели — пусто);\n- `younger_than_week` — `true`, если товару меньше 7 дней (у него нет прошлой недели для сравнения). Это **не** то же самое, что «новинка» в гипотезе 3;\n- `expected_qty` — прогноз сервиса прогнозирования на текущую неделю.\n\nЭти цифры уже посчитаны — не пересчитывай их, а опирайся на них.\n\n## Две оценки каждой подтверждённой гипотезы\n\nДля каждой подтверждённой гипотезы указывай **две независимые оценки** — не смешивай их:\n\n- **Сила доказательства** — насколько прямо факт связан с ростом. Определяется **типом связи**, а не числами:\n  - **сильная** — факт и рост состоят из одних и тех же продаж: опт (рост — это и есть эти заказы); реклама, когда рост сосредоточен в городе кампании;\n  - **средняя** — факт совпадает с ростом только по времени: скидка в текущей неделе; новинка (возраст < 45 дней); реклама, когда рост не только в городе кампании.\n- **Доля роста** — сколько штук прироста (`growth`) объясняет причина, в процентах. Считается **только** там, где её можно взять прямо из ответов инструментов:\n  - опт: сумма `qty` крупных заказов / `growth`;\n  - реклама: (`current_qty` − `previous_qty`) в городе кампании / `growth`;\n  - скидка, новинка: **«не измерима»**.\n\n**Не придумывай формулы для доли.** Если долю нельзя взять из ответа инструмента по правилам выше — пиши «не измерима», а не оценку на глаз.\n\n## Порядок проверки\n\nПроверяй гипотезы строго в этом порядке. Порядок выбран так: сначала самые дешёвые проверки с самым сильным доказательством, в конце — самые косвенные.\n\nИнструменты в твоём списке называются с префиксом источника: `sales_…` — данные продаж, `marketing_…` — файлы маркетинга (например, `sales_get_large_orders`, `marketing_read_text_file`). Вызывай каждый инструмент **один раз за шаг** и дожидайся результата, прежде чем решать, что делать дальше.\n\n**Полная последовательность — каждый инструмент вызывается не больше одного раза за всё расследование:**\n\n1. `sales_get_large_orders`\n2. `sales_get_price_history`\n3. `sales_get_product_info` (пропусти, если `younger_than_week = true`)\n4. `marketing_read_text_file`\n5. `sales_get_sales_by_city`\n6. → отчёт\n\nДвигайся по этому списку **только вперёд**. Результат каждого вызова уже есть выше в диалоге — **никогда не вызывай инструмент повторно**, чтобы «перепроверить». Если сработало условие остановки — сразу переходи к отчёту.\n\n### 1. Оптовая закупка\n\n- Инструмент: `get_large_orders(sku, days=7)`.\n- **Подтверждено**, если есть заказы компаний (`customer_type = company`) или заказы с большим количеством в одном заказе.\n- Сила: **сильная**. Доля: сумма `qty` крупных заказов / `growth`.\n\n### 2. Скидка или акция\n\n- Инструмент: `get_price_history(sku, days=30)`.\n- **Подтверждено**, если есть период с `promo_name` или `discount_pct > 0`, который **действовал в текущей неделе** (последние 7 дней).\n- Акция, закончившаяся раньше текущей недели, рост **не объясняет** — так и напиши.\n- Укажи размер скидки в процентах и даты акции.\n- Сила: **средняя**. Доля: **не измерима**.\n\n### 3. Новинка\n\n- Инструмент: `get_product_info(sku)`.\n- **Подтверждено**, если `age_days` < 45 дней — товар недавно появился в каталоге, и рост может быть эффектом новизны.\n- Если `younger_than_week = true`, гипотеза подтверждена заранее — не трать на неё вызов, сравни `cur_qty` с `expected_qty`.\n- Если `younger_than_week = false`, это **ничего не говорит** о новизне: товару может быть и 10, и 40 дней. В этом случае `get_product_info` вызывать **обязательно**.\n- Сила: **средняя**. Доля: **не измерима**.\n\n### 4. Реклама\n\n- Инструменты: `read_text_file(path=\"/data/marketing/campaigns.md\")` и `get_sales_by_city(sku, days=7)`.\n- Найди в календаре кампании по этому `sku`, период которых **пересекается с текущей неделей**. Запланированные, но не начавшиеся кампании и завершённые до текущей недели — не считаются.\n- **Подтверждено**, если город кампании — тот, где сосредоточен рост продаж (по `get_sales_by_city`: `current_qty` заметно выше `previous_qty` именно там). Для кампаний «вся Россия» — если рост есть во всех городах.\n- Если кампания есть, но рост в другом городе — гипотеза **не подтверждена**, так и напиши.\n- Сила: **сильная**, если рост сосредоточен в городе кампании; **средняя**, если рост есть и в других городах. Доля: прирост в городе кампании / `growth`.\n\n## Правила\n\n1. **Остановка.** После каждой подтверждённой гипотезы проверь условие. Остановись, если:\n   - сила **сильная** и доля **> 60%**, или\n   - сила **средняя** и доля **≥ 80%**.\n\n   Если доля «не измерима» — условие **не выполнено**, переходи к **следующей** гипотезе по списку. Во всех остальных случаях тоже переходи к следующей: у роста может быть несколько причин. К уже проверенным гипотезам не возвращайся.\n2. **Причина не найдена.** Если ни одна гипотеза не подтвердилась, честно напиши «причина не найдена» и перечисли, что проверено. **Не придумывай** объяснений, которых нет в данных (сезон, конкуренты, тренды и т.п.) — у тебя нет инструментов, чтобы это проверить.\n3. **Каждое утверждение — с доказательством**: цифра, дата, город или название акции из ответа инструмента.\n4. **Не вызывай один и тот же инструмент с одинаковыми аргументами дважды.** Всего не больше 5 вызовов инструментов на один товар — по одному на каждый инструмент из последовательности.\n5. Если инструмент вернул ошибку — отметь гипотезу как «не удалось проверить» и переходи к следующей.\n6. Никаких рекомендаций «закупить N штук» — это решает аналитик и сервис прогнозирования.\n7. Если ты вызвал инструмент по гипотезе, её статус — «подтверждена», «не подтверждена» или «не удалось проверить», но **не** «не проверялась». «Не проверялась» — только для гипотез, до которых ты не дошёл из-за остановки.\n8. Пиши только по-русски, без английских слов в тексте отчёта (названия инструментов и полей — можно).\n\n## Формат отчёта\n\nОтвечай на русском, в Markdown, строго по шаблону:\n\n```markdown\n# Рост спроса: <name> (<sku>)\n\n**Коротко:** <1–2 предложения: что выросло и главная причина либо «причина не найдена»>\n\n## Цифры\n- Прошлая неделя: <prev_qty> шт. → текущая: <cur_qty> шт. (×<ratio>, +<growth> шт.)\n- Прогноз сервиса: <expected_qty> шт.\n\n## Проверенные гипотезы\n| # | Гипотеза | Результат | Сила | Доля роста | Доказательство |\n|---|---|---|---|---|---|\n| 1 | Оптовая закупка | подтверждена / не подтверждена / не проверялась / не удалось проверить | сильная / средняя / — | NN% / не измерима / — | ... |\n| 2 | Скидка | ... | ... | ... | ... |\n| 3 | Новинка | ... | ... | ... | ... |\n| 4 | Реклама | ... | ... | ... | ... |\n\n## Вывод\n<какие причины подтверждены, с силой и долей; сработало ли условие остановки; уверенность: высокая / средняя / низкая>\n\n## Что проверить вручную\n<что аналитику стоит посмотреть самому, если вывод неполный; иначе «—»>\n```",
+          "maxIterations": 8
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        112,
+        0
+      ],
+      "id": "372beffe-f81f-44df-aa68-d14a3865140a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3.5-lightning:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        208
+      ],
+      "id": "33f5a651-9c79-491f-93b1-888a4c168881",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "dJVkUaRnxAIEXnWN",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://files-mcp:8000/mcp",
+        "include": "selected",
+        "includeTools": [
+          "read_text_file"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        144,
+        304
+      ],
+      "id": "d2f8f8be-67e5-4620-8d2d-f4558c40f688",
+      "name": "marketing"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://sales-mcp:8000/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        48,
+        208
+      ],
+      "id": "d483f52f-36d6-4845-8d34-33954984aa50",
+      "name": "sales"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Поиск аномалий роста спроса (не-AI шаг). Возвращает товары в формате входа skill.\n-- Текущая неделя = последние 7 полных дней, прошлая = 7 дней до неё.\nWITH s AS (\n  SELECT p.sku, p.name, p.min_weekly_sales,\n         (CURRENT_DATE - p.created_at) < 7 AS younger_than_week,\n         COALESCE(SUM(oi.qty) FILTER (WHERE o.created_at >= CURRENT_DATE - 7\n                                        AND o.created_at <  CURRENT_DATE), 0)     AS cur_qty,\n         COALESCE(SUM(oi.qty) FILTER (WHERE o.created_at >= CURRENT_DATE - 14\n                                        AND o.created_at <  CURRENT_DATE - 7), 0) AS prev_qty\n  FROM products p\n  LEFT JOIN order_items oi USING (sku)\n  LEFT JOIN orders o ON o.id = oi.order_id\n  GROUP BY p.sku, p.name, p.min_weekly_sales, p.created_at\n)\nSELECT s.sku, s.name, s.prev_qty, s.cur_qty,\n       s.cur_qty - s.prev_qty                               AS growth,\n       round(s.cur_qty::numeric / NULLIF(s.prev_qty, 0), 2) AS ratio,\n       s.younger_than_week,\n       f.expected_qty\nFROM s\nLEFT JOIN forecasts f ON f.sku = s.sku AND f.week_start = CURRENT_DATE - 7\nWHERE s.cur_qty >= s.min_weekly_sales                                  -- порог объёма: отсекаем шум\n  AND (\n        -- обычный товар: рост больше чем в 1,5 раза к прошлой неделе\n        (NOT s.younger_than_week AND s.prev_qty > 0 AND s.cur_qty > 1.5 * s.prev_qty)\n        -- товар младше недели: прошлой недели нет, сравниваем с прогнозом\n     OR (s.younger_than_week AND s.cur_qty > 1.5 * COALESCE(f.expected_qty, 0))\n      )\n  AND NOT EXISTS (                                                     -- дедупликация\n        SELECT 1 FROM reported_anomalies r\n        WHERE r.sku = s.sku AND r.reported_at > now() - interval '7 days'\n      )\nORDER BY s.younger_than_week, ratio DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -208,
+        0
+      ],
+      "id": "0002098f-4bb3-4df4-9db2-977d64a227ce",
+      "name": "Find anomalies",
+      "credentials": {
+        "postgres": {
+          "id": "aWR5omjSP6oDs6SA",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -368,
+        176
+      ],
+      "id": "6b22f76b-7e3b-4651-a1cb-a0226e3f62e1",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "output",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        0
+      ],
+      "id": "46dc73e1-ab85-446c-87f5-bc2bc6f9beac",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/reports/{{ $now.toFormat('yyyy-MM-dd') }}_{{ $('Find anomalies').all()[$runIndex].json.sku }}.md",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        544,
+        0
+      ],
+      "id": "63193a4b-cf8d-453b-91dc-1da102e0f7ae",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO reported_anomalies (sku, week_start) VALUES ($1, CURRENT_DATE) ON CONFLICT DO NOTHING;",
+        "options": {
+          "queryReplacement": "={{ $('Find anomalies').all()[$runIndex].json.sku }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        688,
+        0
+      ],
+      "id": "dccdec10-2395-48d3-9967-de5f70a7c56f",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "aWR5omjSP6oDs6SA",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "66a48e2d-067e-435e-ac36-76134d2af0fa",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Find anomalies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "marketing": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sales": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find anomalies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find anomalies": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d3fb7a82-a316-401d-9619-b8ad58e38889",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c25191840008fbadf6d5619e6b910ff71c72c8f0cb4354c7d43551a5718e0f82"
+  },
+  "nodeGroups": [],
+  "id": "pn21QI7FPKkd4BdQ",
+  "tags": []
+}

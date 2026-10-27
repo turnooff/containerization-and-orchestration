@@ -1,0 +1,38 @@
+groups:
+  - name: demand-digest
+    rules:
+      # 1. Dead man's switch: результата нет больше суток — неважно почему.
+      #    absent() — чтобы алерт сработал, даже если сам экспортер лёг и метрика пропала.
+      - alert: DigestNoSuccessfulRun
+        expr: |
+          (time() - digest_last_success_timestamp_seconds > 25 * 3600)
+          or absent(digest_last_success_timestamp_seconds)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Нет успешного запуска дайджеста больше 25 часов (или нет метрики)"
+          description: "Расписание раз в сутки. Проверь n8n, квоту модели, executions с ошибками и сам digest-exporter."
+
+      # 2. Цикл не доведён до конца: аномалии нашли, а отчётов меньше.
+      - alert: DigestReportsLost
+        expr: digest_last_run_anomalies_found - digest_last_run_reports_written > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Последний запуск потерял {{ $value }} отчёт(ов)"
+          description: "Найдено аномалий больше, чем записано отчётов: агент упал, кончилась квота или не удалась запись файла."
+
+      # 3. Контейнер зациклился на перезапусках (crash loop).
+      #    Перезапуск обнуляет счётчик CPU контейнера → resets().
+      - alert: ContainerCrashLooping
+        expr: |
+          sum by (container_label_com_docker_compose_service) (
+            resets(container_cpu_usage_seconds_total{container_label_com_docker_compose_service!=""}[15m])
+          ) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.container_label_com_docker_compose_service }}: больше 5 перезапусков за 15 минут"
+          description: "Для postgres даже единичный перезапуск важен: tmpfs → обнуляется таблица дедупликации."
